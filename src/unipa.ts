@@ -174,6 +174,7 @@ export default class UNIPA {
       } as CommonRequest,
       this.cookie,
     );
+    this.updateCookie(res);
     const resJson = (await res.json()) as { authResult: boolean };
     if (!resJson.authResult) {
       console.warn(resJson);
@@ -182,10 +183,18 @@ export default class UNIPA {
   }
 
   private updateCookie(response: Response) {
-    const cookies = response.headers
-      .get("set-cookie")!
-      .match(/JSESSIONID=.*?:-1;/g)!;
-    this.cookie = cookies[cookies.length - 1];
+    if (response.headers.has("set-cookie")) {
+      const cookies = response.headers
+        .get("set-cookie")!
+        .match(/JSESSIONID=.*?:-1;/g)!;
+      this.cookie = cookies[cookies.length - 1];
+    }
+  }
+
+  private wait(millisecond: number) {
+    return new Promise((resolve) => {
+      setTimeout(resolve, millisecond)
+    });
   }
 
   async login(auth: Auth) {
@@ -405,7 +414,7 @@ export default class UNIPA {
       }[];
     }[];
 
-    for (let i = 0; i < form1TableBody.children.length - 1; i++) {
+    for (let i = 0; i <= form1TableBody.children.length - 1; i++) {
       /*
        DOMメモ: カテゴリ
         - form1:htmlParentTable:${i}:htmlHeaderTbl:0:htmlHeaderCol
@@ -447,6 +456,7 @@ export default class UNIPA {
             "",
           "form1": "form1",
         }, this.cookie);
+        this.updateCookie(res2);
         const res2Text = await res2.text();
         const dom2 = this.parseTextToDOM(res2Text);
 
@@ -488,6 +498,12 @@ export default class UNIPA {
               undefined,
           });
         }
+        await this.fetch.post("/faces/up/po/Poa00201Asm.jsp", {
+          "form1:htmlParentTable:0:htmlHeaderTbl:0:retrurn": "一覧表示",
+          "form1:htmlParentTable:htmlDetailTbl2:web1__pagerWeb": "0",
+          "com.sun.faces.VIEW": this.getComSunFacesVIEW(dom2),
+          "form1": "form1"
+        }, this.cookie)
       } else {
         const categoryDetailRows = form1TableBody.getElementById(
           `form1:htmlParentTable:${i}:htmlDetailTbl`,
@@ -502,34 +518,70 @@ export default class UNIPA {
                 ( * 重要でない場合 * この要素があります)
             - form1:htmlParentTable:${i}:htmlDetailTbl:${j}:htmlTitleCol1
               - 掲示タイトル
-            - form1:htmlParentTable:${i}:htmlDetailTbl:${j}:htmlFromCol1
+              - form1:htmlParentTable:${i}:htmlDetailTbl:${j}:htmlFromCol1
               - 送信者
+                あと"０件です。"の表示が入ることがある
             - form1:htmlParentTable:${i}:htmlDetailTbl:${j}:htmlFromCol2
               - 掲示日時
           */
-          categoryInfo.keiji.push({
-            unread: !categoryDetailRows?.getElementById(
-              `form1:htmlParentTable:${i}:htmlDetailTbl:${j}:htmlMidokul`,
-            ),
-            important: !categoryDetailRows?.getElementById(
-              `form1:htmlParentTable:${i}:htmlDetailTbl:${j}:htmlJuyo`,
-            ),
-            title: categoryDetailRows?.getElementById(
+          if (
+            categoryDetailRows?.getElementById(
               `form1:htmlParentTable:${i}:htmlDetailTbl:${j}:htmlTitleCol1`,
-            )?.getAttribute("title") ?? undefined,
-            from: categoryDetailRows?.getElementById(
-              `form1:htmlParentTable:${i}:htmlDetailTbl:${j}:htmlFromCol1`,
-            )?.innerText.replace("  ", "") ?? undefined,
-            date: (categoryDetailRows?.getElementById(
-              `form1:htmlParentTable:${i}:htmlDetailTbl:${j}:htmlFromCol2`,
-            )?.innerText.match(/\[(\d{4}\/\d{2}\/\d{2})\]/) ?? [,])[1] ??
-              undefined,
-          });
+            )?.getAttribute("title") ?? undefined
+          ) {
+            categoryInfo.keiji.push({
+              unread: !categoryDetailRows?.getElementById(
+                `form1:htmlParentTable:${i}:htmlDetailTbl:${j}:htmlMidokul`,
+              ),
+              important: !categoryDetailRows?.getElementById(
+                `form1:htmlParentTable:${i}:htmlDetailTbl:${j}:htmlJuyo`,
+              ),
+              title: categoryDetailRows?.getElementById(
+                `form1:htmlParentTable:${i}:htmlDetailTbl:${j}:htmlTitleCol1`,
+              )?.getAttribute("title") ?? undefined,
+              from: categoryDetailRows?.getElementById(
+                `form1:htmlParentTable:${i}:htmlDetailTbl:${j}:htmlFromCol1`,
+              )?.innerText.replace("  ", "") ?? undefined,
+              date: (categoryDetailRows?.getElementById(
+                `form1:htmlParentTable:${i}:htmlDetailTbl:${j}:htmlFromCol2`,
+              )?.innerText.match(/\[(\d{4}\/\d{2}\/\d{2})\]/) ?? [,])[1] ??
+                undefined,
+            });
+          }
         }
       }
       categoryInfos.push(categoryInfo);
     }
     return categoryInfos;
+  }
+
+  async getKeijiDetail(categoryId: number, keijiId: number) {
+    const res = await this.fetch.get(
+      "/faces/up/po/pPoa0202Asm.jsp?fieldId=" +
+        `dummy:form1:htmlParentTable:${categoryId}:htmlDetailTbl:${keijiId}:linkEx1`,
+      this.cookie,
+    );
+    this.updateCookie(res);
+    const resText = await res.text();
+    const dom = this.parseTextToDOM(resText);
+    const main = dom.getElementById("main");
+    if (main?.innerText === undefined) {
+      throw new Error("Load Failed");
+    }
+    /*
+      DOMメモ: 掲示詳細画面
+      - form1:htmlTitle
+        - 件名
+      - form1:htmlFrom
+        - 差出人
+      - form1:htmlMain
+        - 本文
+    */
+    return {
+      title: main.getElementById("form1:htmlTitle")?.innerText,
+      from: main.getElementById("form1:htmlFrom")?.innerText,
+      body: main.getElementById("form1:htmlMain")?.innerHTML,
+    };
   }
 
   getPortalURL() {
