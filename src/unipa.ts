@@ -621,4 +621,12 @@ export default class UNIPA {
   setCookie(authCookie: AuthCookie) {
     this.cookie = authCookie.cookie;
   }
+
+  _getSessionInfo() {
+    return {
+      userId: this.userId,
+      shikibetsuCd: this.shikibetsuCd,
+      cookie: this.cookie
+    }
+  }
 }
