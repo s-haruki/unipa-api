@@ -1,5 +1,4 @@
 export default class UNIPAFetch {
-
   /** UNIPAにアクセスする時のベースURL */
   baseurl;
   constructor(baseurl: string) {
@@ -12,7 +11,11 @@ export default class UNIPAFetch {
    * @param cookie  クッキー
    */
   async getSmartphoneAPI(body: Record<string, unknown>, cookie?: string) {
-    return await this.get(`/faces/up/ap/SmartphoneAppCommon?jsonData=` + encodeURI(JSON.stringify(body)), cookie);
+    return await this.get(
+      `/faces/up/ap/SmartphoneAppCommon?jsonData=` +
+        encodeURI(JSON.stringify(body)),
+      cookie,
+    );
   }
 
   /** UNIPAにPOSTを送ります
@@ -20,18 +23,22 @@ export default class UNIPAFetch {
    *  @param body   HTMLフォーム形式のbody
    *  @param cookie 送信するCookie
    */
-  async post(url: string, body: Record<string, string> | string, cookie?: string): Promise<Response> {
+  async post(
+    url: string,
+    body: Record<string, string> | string,
+    cookie?: string,
+  ): Promise<Response> {
     //bodyをHTMLフォーム形式にエンコード
     const params = new URLSearchParams(body);
-    const request = new Request(`${this.baseurl}${url}`,{
+    const request = new Request(`${this.baseurl}${url}`, {
       body: params,
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
         "Content-Length": params.toString().length.toString(),
-        "Cookie": cookie ?? ""
+        "Cookie": cookie ?? "",
       },
-      keepalive: true
+      keepalive: true,
     });
     console.log(request);
     return await fetch(request);
@@ -46,8 +53,8 @@ export default class UNIPAFetch {
       method: "GET",
       headers: {
         Cookie: cookie ?? "",
-        "User-Agent": "UNIPA/1.1.25 UNIPA-API-SERVER/0.0.1"
-      }
+        "User-Agent": "UNIPA/1.1.25 UNIPA-API-SERVER/0.0.1",
+      },
     });
   }
 }

@@ -58,7 +58,7 @@ export type ClassInfo = CommonResponse & {
       kessekiKaisu: number;
       tikokuKaisu: number;
       sotaiKaisu: number;
-    }
+    },
   ];
   JgkmInfo: {
     jugyoStartTime: string;
@@ -115,12 +115,15 @@ export default class UNIPA {
   private cookie?: string;
 
   /** UNIPA APIを初期化します */
-  constructor(baseurl: string, authProperty?: {userId: string, shikibetsuCd: string, cookie: string}) {
+  constructor(
+    baseurl: string,
+    authProperty?: { userId: string; shikibetsuCd: string; cookie: string },
+  ) {
     this.fetch = new Fetch(baseurl);
     if (authProperty) {
-      this.userId = authProperty.userId
-      this.shikibetsuCd = authProperty.shikibetsuCd
-      this.cookie = authProperty.cookie
+      this.userId = authProperty.userId;
+      this.shikibetsuCd = authProperty.shikibetsuCd;
+      this.cookie = authProperty.cookie;
     }
   }
 
@@ -161,7 +164,7 @@ export default class UNIPA {
           userId: this.userId,
         },
       } as CommonRequest,
-      this.cookie
+      this.cookie,
     );
     const resJson = (await res.json()) as { authResult: boolean };
     return resJson.authResult;
@@ -188,7 +191,7 @@ export default class UNIPA {
           password: auth.password,
         },
       } as CommonRequest,
-      this.cookie
+      this.cookie,
     );
     this.updateCookie(res);
     const resJson = (await res.json()) as AuthResponse;
@@ -204,7 +207,7 @@ export default class UNIPA {
       authResult: true,
       gakusekiCd: resJson.gakusekiCd,
       shikibetsuCd: resJson.shikibetsuCd,
-      cookie: this.cookie
+      cookie: this.cookie,
     };
   }
 
@@ -219,7 +222,7 @@ export default class UNIPA {
         },
         data: {},
       } as CommonRequest,
-      this.cookie
+      this.cookie,
     );
     const resJson = (await res.json()) as CommonResponse & {
       maxJigenNo: number;
@@ -242,7 +245,7 @@ export default class UNIPA {
           userId: this.userId,
         },
       } as CommonRequest,
-      this.cookie
+      this.cookie,
     );
     const resJson = (await res.json()) as CommonResponse & {
       /** 学期数 (大体2まで) */
@@ -278,7 +281,7 @@ export default class UNIPA {
         },
         data: {},
       } as CommonRequest,
-      this.cookie
+      this.cookie,
     );
     const resJson = (await res.json()) as CommonResponse & { keijiCnt: number };
     this.checkResponseAuthStatus(resJson);
@@ -300,7 +303,7 @@ export default class UNIPA {
           ...(gakkiInfo ?? {}),
         },
       } as CommonRequest,
-      this.cookie
+      this.cookie,
     );
     const resJson = (await res.json()) as TimetableInfoResponse;
     this.checkResponseAuthStatus(resJson);
@@ -319,7 +322,7 @@ export default class UNIPA {
         },
         data: classProperty,
       } as CommonRequest,
-      this.cookie
+      this.cookie,
     );
     const resJson = (await res.json()) as ClassInfo;
     this.checkResponseAuthStatus(resJson);
@@ -339,10 +342,10 @@ export default class UNIPA {
         data: {
           jugyoMemo: memo,
           nendo: classProperty.nendo,
-          jugyoCd: classProperty.jugyoCd
+          jugyoCd: classProperty.jugyoCd,
         },
       } as CommonRequest,
-      this.cookie
+      this.cookie,
     );
     const resJson = (await res.json()) as ClassInfo;
     this.checkResponseAuthStatus(resJson);
@@ -350,7 +353,7 @@ export default class UNIPA {
     return resJson;
   }
 
-  /* async */_getKeijiList(_showAll = true) {
+  /* async */ _getKeijiList(_showAll = true) {
     //WIP
     return;
 
@@ -408,7 +411,7 @@ export default class UNIPA {
       "header": {
         "deviceId": "i12345678-9ABC-4DEF-0123-456789ABCDEF",
         "shikibetsuCd": this.shikibetsuCd,
-        "userId": this.userId
+        "userId": this.userId,
       },
       "option": {
         "sanshoTblFlg": "1",
@@ -416,10 +419,11 @@ export default class UNIPA {
         "jugyoCd": classProperty.jugyoCd,
         "buttonDsp": "0",
         "funcId": "Kms008",
-        "formId": "pKms0804A"
-      }
-    }
-    return `${this.fetch.baseurl}/faces/up/ap/SmartphoneAppCommon?jsonData=` + encodeURI(JSON.stringify(jsonData));
+        "formId": "pKms0804A",
+      },
+    };
+    return `${this.fetch.baseurl}/faces/up/ap/SmartphoneAppCommon?jsonData=` +
+      encodeURI(JSON.stringify(jsonData));
   }
 
   setCookie(authCookie: AuthCookie) {

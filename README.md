@@ -2,7 +2,6 @@
 
 Universal Portal (EX) のお知らせを始めとした各種情報を取得するAPI
 
-
 ## 解説
 
 準備中
