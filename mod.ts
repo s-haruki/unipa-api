@@ -13,7 +13,7 @@ async function test() {
   const env = await load({ defaultsPath: null, examplePath: null }) as ENV;
   const unipa = new UNIPA(env.BASEURL);
   await unipa.login({ userId: env.USERID, password: env.PASSWORD });
-  console.log(await unipa.getTimetableInfo());
+  console.log(await unipa.getKeijiList(true));
 }
 await test();
 // deno-lint-ignore no-debugger

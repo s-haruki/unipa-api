@@ -37,10 +37,10 @@ export default class UNIPAFetch {
         "Content-Type": "application/x-www-form-urlencoded",
         "Content-Length": params.toString().length.toString(),
         "Cookie": cookie ?? "",
+        "Referer": this.baseurl,
       },
       keepalive: true,
     });
-    console.log(request);
     return await fetch(request);
   }
 

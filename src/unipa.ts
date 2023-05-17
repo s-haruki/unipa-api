@@ -17,6 +17,14 @@ export type CommonResponse = {
 } | {
   authResult: false;
   message?: string;
+  /**
+   * ログインステータス? \
+   * "0": 仮ログイン
+   * "1": パスワードがユーザーIDと同じ
+   * "2": パスワードの有効期限切れ
+   * "3": 仮パスワードでのログイン
+   * それ以外: ユーザー情報の異常(パスワードが違うなど)
+   */
   resultStatus?: string;
 };
 
@@ -167,13 +175,17 @@ export default class UNIPA {
       this.cookie,
     );
     const resJson = (await res.json()) as { authResult: boolean };
+    if (!resJson.authResult) {
+      console.warn(resJson);
+    }
     return resJson.authResult;
   }
 
   private updateCookie(response: Response) {
-    this.cookie = response.headers
+    const cookies = response.headers
       .get("set-cookie")!
-      .match(/JSESSIONID=.*?:-1;/)![0];
+      .match(/JSESSIONID=.*?:-1;/g)!;
+    this.cookie = cookies[cookies.length - 1];
   }
 
   async login(auth: Auth) {
@@ -353,43 +365,171 @@ export default class UNIPA {
     return resJson;
   }
 
-  /* async */ _getKeijiList(_showAll = true) {
-    //WIP
-    return;
+  async getKeijiList(showAll = true) {
+    if (!await this.checkAuthStatus()) {
+      throw new Error("Session Expired.");
+    }
+    const res = await this.fetch.getSmartphoneAPI(
+      {
+        option: {
+          buttonDsp: "0",
+        },
+        header: {
+          deviceId: "i12345678-9ABC-4DEF-0123-456789ABCDEF",
+          funcId: "Poa002",
+          shikibetsuCd: this.shikibetsuCd,
+          userId: this.userId,
+        },
+      } as CommonRequest,
+      this.cookie,
+    );
+    this.updateCookie(res);
+    const resText = await res.text();
+    const dom = this.parseTextToDOM(resText);
+    const comSunFacesVIEW = this.getComSunFacesVIEW(dom);
+    const form1TableBody =
+      dom.getElementById("form1:htmlParentTable")?.children[0];
+    if (form1TableBody?.innerText === undefined) {
+      throw new Error("Load Failed");
+    }
 
-    // await this.checkAuthStatus();
-    // const res = await this.fetch.getSmartphoneAPI(
-    //   {
-    //     option:{
-    //       buttonDsp:"0"
-    //     },
-    //     header: {
-    //       deviceId: "i12345678-9ABC-4DEF-0123-456789ABCDEF",
-    //       funcId: "Poa002",
-    //       shikibetsuCd: this.shikibetsuCd,
-    //       userId: this.userId,
-    //     }
-    //   } as CommonRequest,
-    //   this.cookie
-    // );
-    // const resText = await res.text();
-    // const dom = this.parseTextToDOM(resText);
-    // const form1TableBody = dom.getElementById("form1:htmlParentTable")?.children[0];
-    // console.log(form1TableBody?.innerText.replaceAll("   ", "").replaceAll("	", "").replaceAll("\n\n", ""));
-    // if (form1TableBody?.innerText === undefined) {
-    //   console.log(dom.body.innerText.replaceAll("   ", "").replaceAll("	", "").replaceAll("\n\n", ""));
-    //   throw new Error("Load Failed");
-    // }
-    // for (let i = 0; i == form1TableBody.children.length - 1; i++) {
-    //   /*
-    //    DOMメモ: カテゴリ
-    //     - form1:htmlParentTable:${i}:htmlHeaderTbl:0:htmlHeaderCol
-    //       - カテゴリタイトル
-    //     - form1:htmlParentTable:${i}:htmlDetailTbl
-    //       - 内容のテーブル
-    //   */
-    // }
-    // return ;
+    const categoryInfos = [] as {
+      title?: string;
+      count: number;
+      keiji: {
+        unread: boolean;
+        important: boolean;
+        title?: string;
+        from?: string;
+        date?: unknown;
+      }[];
+    }[];
+
+    for (let i = 0; i < form1TableBody.children.length - 1; i++) {
+      /*
+       DOMメモ: カテゴリ
+        - form1:htmlParentTable:${i}:htmlHeaderTbl:0:htmlHeaderCol
+          - カテゴリタイトル
+        - form1:htmlParentTable:${i}:htmlDetailTbl
+          - 内容のテーブル
+        - form1:htmlParentTable:${i}:htmlDisplayOfAll:0:htmlCountCol21702
+          - 掲示数のカウント (/全(\d*)件/)
+        - form1:htmlParentTable:${i}:htmlDisplayOfAll:0:allInfoLink
+          - 「もっと見る」リンク
+      */
+      const categoryInfo = {
+        title: form1TableBody.getElementById(
+          `form1:htmlParentTable:${i}:htmlHeaderTbl:0:htmlHeaderCol`,
+        )?.innerText,
+        count: parseInt(
+          (form1TableBody.getElementById(
+            `form1:htmlParentTable:${i}:htmlDisplayOfAll:0:htmlCountCol21702`,
+          )?.innerText.match(/全(\d*)件/) ?? [, "0"])[1],
+        ),
+        keiji: [] as {
+          unread: boolean;
+          important: boolean;
+          title?: string;
+          from?: string;
+          date?: unknown;
+        }[],
+      };
+      if (
+        showAll &&
+        form1TableBody?.getElementById(
+          `form1:htmlParentTable:${i}:htmlDisplayOfAll:0:allInfoLink`,
+        )
+      ) {
+        //TODO: ページングに対応する
+        const res2 = await this.fetch.post("/faces/up/po/Poa00201Asm.jsp", {
+          "com.sun.faces.VIEW": comSunFacesVIEW,
+          [`form1:htmlParentTable:${i}:htmlDisplayOfAll:0:allInfoLinkCommand`]:
+            "",
+          "form1": "form1",
+        }, this.cookie);
+        const res2Text = await res2.text();
+        const dom2 = this.parseTextToDOM(res2Text);
+
+        //「もっと見る」の画面ではhtmlDetailTbl2のみ
+        const categoryDetailRows = dom2.getElementById(
+          `form1:htmlParentTable:0:htmlDetailTbl2`,
+        )?.children[1];
+        for (let j = 0; j < categoryDetailRows?.children.length!; j++) {
+          /*
+            - form1:htmlParentTable:0:htmlDetailTbl2:${j}:htmlMidokul2
+              - 未読かどうか
+                ( * 既読の場合 * この要素があります)
+            - form1:htmlParentTable:0:htmlDetailTbl2:${j}:htmlJuyo2
+              - 重要かどうか
+                ( * 重要でない場合 * この要素があります)
+            - form1:htmlParentTable:0:htmlDetailTbl2:${j}:htmlTitleCol3
+              - 掲示タイトル
+            - form1:htmlParentTable:0:htmlDetailTbl2:${j}:htmlFromCol3
+              - 送信者
+            - form1:htmlParentTable:0:htmlDetailTbl2:${j}:htmlFromCol4
+              - 掲示日時
+          */
+          categoryInfo.keiji.push({
+            unread: !categoryDetailRows?.getElementById(
+              `form1:htmlParentTable:0:htmlDetailTbl2:${j}:htmlMidokul2`,
+            ),
+            important: !categoryDetailRows?.getElementById(
+              `form1:htmlParentTable:0:htmlDetailTbl2:${j}:htmlJuyo2`,
+            ),
+            title: categoryDetailRows?.getElementById(
+              `form1:htmlParentTable:0:htmlDetailTbl2:${j}:htmlTitleCol3`,
+            )?.getAttribute("title") ?? undefined,
+            from: categoryDetailRows?.getElementById(
+              `form1:htmlParentTable:0:htmlDetailTbl2:${j}:htmlFromCol3`,
+            )?.innerText.replace("  ", "") ?? undefined,
+            date: (categoryDetailRows?.getElementById(
+              `form1:htmlParentTable:0:htmlDetailTbl2:${j}:htmlFromCol4`,
+            )?.innerText.match(/\[(\d{4}\/\d{2}\/\d{2})\]/) ?? [,])[1] ??
+              undefined,
+          });
+        }
+      } else {
+        const categoryDetailRows = form1TableBody.getElementById(
+          `form1:htmlParentTable:${i}:htmlDetailTbl`,
+        )?.children[0];
+        for (let j = 0; j < categoryDetailRows?.children.length!; j++) {
+          /*
+            - form1:htmlParentTable:${i}:htmlDetailTbl:${j}:htmlMidokul
+              - 未読かどうか
+                ( * 既読の場合 * この要素があります)
+            - form1:htmlParentTable:${i}:htmlDetailTbl:${j}:htmlJuyo
+              - 重要かどうか
+                ( * 重要でない場合 * この要素があります)
+            - form1:htmlParentTable:${i}:htmlDetailTbl:${j}:htmlTitleCol1
+              - 掲示タイトル
+            - form1:htmlParentTable:${i}:htmlDetailTbl:${j}:htmlFromCol1
+              - 送信者
+            - form1:htmlParentTable:${i}:htmlDetailTbl:${j}:htmlFromCol2
+              - 掲示日時
+          */
+          categoryInfo.keiji.push({
+            unread: !categoryDetailRows?.getElementById(
+              `form1:htmlParentTable:${i}:htmlDetailTbl:${j}:htmlMidokul`,
+            ),
+            important: !categoryDetailRows?.getElementById(
+              `form1:htmlParentTable:${i}:htmlDetailTbl:${j}:htmlJuyo`,
+            ),
+            title: categoryDetailRows?.getElementById(
+              `form1:htmlParentTable:${i}:htmlDetailTbl:${j}:htmlTitleCol1`,
+            )?.getAttribute("title") ?? undefined,
+            from: categoryDetailRows?.getElementById(
+              `form1:htmlParentTable:${i}:htmlDetailTbl:${j}:htmlFromCol1`,
+            )?.innerText.replace("  ", "") ?? undefined,
+            date: (categoryDetailRows?.getElementById(
+              `form1:htmlParentTable:${i}:htmlDetailTbl:${j}:htmlFromCol2`,
+            )?.innerText.match(/\[(\d{4}\/\d{2}\/\d{2})\]/) ?? [,])[1] ??
+              undefined,
+          });
+        }
+      }
+      categoryInfos.push(categoryInfo);
+    }
+    return categoryInfos;
   }
 
   getPortalURL() {
