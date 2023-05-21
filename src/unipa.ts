@@ -125,7 +125,7 @@ export default class UNIPA {
   /** UNIPA APIを初期化します */
   constructor(
     baseurl: string,
-    authProperty?: { userId: string; shikibetsuCd: string;},
+    authProperty?: { userId: string; shikibetsuCd: string },
   ) {
     this.fetch = new Fetch(baseurl);
     if (authProperty) {
@@ -192,7 +192,7 @@ export default class UNIPA {
 
   private wait(millisecond: number) {
     return new Promise((resolve) => {
-      setTimeout(resolve, millisecond)
+      setTimeout(resolve, millisecond);
     });
   }
 
@@ -501,8 +501,8 @@ export default class UNIPA {
           "form1:htmlParentTable:0:htmlHeaderTbl:0:retrurn": "一覧表示",
           "form1:htmlParentTable:htmlDetailTbl2:web1__pagerWeb": "0",
           "com.sun.faces.VIEW": this.getComSunFacesVIEW(dom2),
-          "form1": "form1"
-        }, this.cookie)
+          "form1": "form1",
+        }, this.cookie);
       } else {
         const categoryDetailRows = form1TableBody.getElementById(
           `form1:htmlParentTable:${i}:htmlDetailTbl`,
@@ -578,10 +578,15 @@ export default class UNIPA {
       - form1:htmlFileTable
         - 添付ファイル
     */
-    const files = [] as { name: string, size: string, downloadFile: (cookie?: string) => Promise<Response>}[];
+    const files = [] as {
+      name: string;
+      size: string;
+      downloadFile: (cookie?: string) => Promise<Response>;
+    }[];
     if (main.getElementById("form1:htmlFileTable")) {
-      const fileTableBody = main.getElementById("form1:htmlFileTable")?.children[0]!
-      for (let i = 0; i < fileTableBody.children.length;i++) {
+      const fileTableBody = main.getElementById("form1:htmlFileTable")
+        ?.children[0]!;
+      for (let i = 0; i < fileTableBody.children.length; i++) {
         const fileTableRow = fileTableBody.children[i];
         /*
           - form1:htmlFileTable:${i}:labelFileName
@@ -591,10 +596,16 @@ export default class UNIPA {
           - form1:htmlFileTable:${i}:_id3
             - ダウンロードボタン要素のID
         */
-        const serializedCookie = JSON.parse(JSON.stringify(this.cookie)) as string;
+        const serializedCookie = JSON.parse(
+          JSON.stringify(this.cookie),
+        ) as string;
         files.push({
-          name: fileTableRow.getElementById(`form1:htmlFileTable:${i}:labelFileName`)?.innerText!,
-          size: fileTableRow.getElementById(`form1:htmlFileTable:${i}:labelFileSize`)?.innerText!,
+          name: fileTableRow.getElementById(
+            `form1:htmlFileTable:${i}:labelFileName`,
+          )?.innerText!,
+          size: fileTableRow.getElementById(
+            `form1:htmlFileTable:${i}:labelFileSize`,
+          )?.innerText!,
           downloadFile: async (cookie?: string) => {
             const query = {
               "form1:htmlFileTable:0:_id3.x": "0",
@@ -603,18 +614,22 @@ export default class UNIPA {
               "form1:htmlDelMark": "",
               "form1:htmlRowKeep": "",
               "com.sun.faces.VIEW": this.getComSunFacesVIEW(dom),
-              "form1": "form1"
-            }
-            return await this.fetch.get("/faces/up/po/pPoa0202Asm.jsp?" + new URLSearchParams(query).toString(), cookie ?? serializedCookie);
-          }
-        })
+              "form1": "form1",
+            };
+            return await this.fetch.get(
+              "/faces/up/po/pPoa0202Asm.jsp?" +
+                new URLSearchParams(query).toString(),
+              cookie ?? serializedCookie,
+            );
+          },
+        });
       }
     }
     return {
       title: main.getElementById("form1:htmlTitle")?.innerText,
       from: main.getElementById("form1:htmlFrom")?.innerText,
       body: main.getElementById("form1:htmlMain")?.innerHTML,
-      files: files
+      files: files,
     };
   }
 
@@ -660,7 +675,7 @@ export default class UNIPA {
     return {
       userId: this.userId,
       shikibetsuCd: this.shikibetsuCd,
-      cookie: this.cookie
-    }
+      cookie: this.cookie,
+    };
   }
 }
