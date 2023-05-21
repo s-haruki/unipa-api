@@ -79,7 +79,7 @@ export type TimetableInfoResponse = CommonResponse & {
     jugyoName: string;
     /** 開講曜日 月曜日から順に1,2,3...となる*/
     kaikoYobi: number;
-    jugyoCd: number;
+    jugyoCd: string;
     kyostName: string;
     gakkiNo: number;
     kyoinName: string;
@@ -348,6 +348,45 @@ export default class UNIPA {
     this.checkResponseAuthStatus(resJson);
     this.updateCookie(res);
     return resJson;
+  }
+
+  async getSyllbusInfo(classProperty: ClassProperty) {
+    const syllbusUrl = this._getSyllbusURL(classProperty);
+    const res = await this.fetch.get(syllbusUrl, this.cookie);
+    this.updateCookie(res);
+    const dom = this.parseTextToDOM(await res.text());
+    const mainDiv = dom.getElementById("main")!;
+    const mainTable = mainDiv.getElementsByClassName("gyoTable listTable")[0]!;
+    const tableRows = mainTable.children[0].children!;
+    /*
+      DOMメモ: シラバス情報
+      * `tableRows` (#main > div.sylTableArea.ui-content > table > tbody > tr > td > table > tbody の子)の中に<tr>がいっぱいある
+      * 内容(0から順番に)
+        - 1
+          - 授業科目名(1), 開講年次(3), 開講年度学期(5), 単位数(7)
+        - 2
+          - 科目ナンバリング(1), 担当教員名(3), 担当形態(5)
+        - 4
+          - 科目の位置付け(本文)
+        - 5
+          - この科目の基礎となる科目(1), 次に必修が望まれる科目(3)
+        - 7
+          - 授業の目的と到達目標(本文)
+        - 9
+          - 授業の概要(本文)
+        - 11
+          - 授業計画と授業の方法(本文)
+        - 12
+          - テキスト・参考書(1)
+        - 13
+          - 授業時間外の学修(1)
+        - 14
+          - 学籍評価の方法と基準(1)
+        - 15
+          - 備考(1)
+        - 16
+          - 担当教員の実務経験の有無(1), 実務経験の具体的内容(3)
+    */
   }
 
   async setClassMemo(classProperty: ClassProperty, memo: string) {
@@ -632,7 +671,7 @@ export default class UNIPA {
     );
   }
 
-  getSyllbusURL(classProperty: ClassProperty) {
+  _getSyllbusURL(classProperty: ClassProperty) {
     const jsonData = {
       "header": {
         "deviceId": "i12345678-9ABC-4DEF-0123-456789ABCDEF",
@@ -648,8 +687,12 @@ export default class UNIPA {
         "formId": "pKms0804A",
       },
     };
-    return `${this.fetch.baseurl}/faces/up/ap/SmartphoneAppCommon?jsonData=` +
+    return `/faces/up/ap/SmartphoneAppCommon?jsonData=` +
       encodeURI(JSON.stringify(jsonData));
+  }
+
+  getSyllbusURL(classProperty: ClassProperty) {
+    return `${this.fetch.baseurl}${this._getSyllbusURL(classProperty)}`;
   }
 
   setCookie(authCookie: AuthCookie) {
