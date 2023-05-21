@@ -36,24 +36,20 @@ async function test() {
     await unipa.login({ userId: env.USERID, password: env.PASSWORD });
   }
   console.log(unipa.getPortalURL());
-  console.log(await unipa.getKeijiList(true));
-  const Keiji = await unipa.getKeijiDetail(6, 2);
-  console.log(Keiji.files);
-  const file = await Keiji.files[0].downloadFile();
-  const reader = file.body?.getReader();
-  console.log(file.headers);
-  //@ts-ignore: Deno
-  const savedFile = await Deno.create(
-    decodeMIMEText(file.headers.get("content-disposition")!),
-  );
-  while (true) {
-    const chunk = await reader?.read();
-    if (chunk?.value) savedFile.writeSync(chunk.value);
-    if (chunk?.done) break;
-  }
-  savedFile.close();
-  console.log(JSON.stringify(unipa._getSessionInfo()));
+  const timetable = await unipa.getTimetableInfo()
+  console.log(timetable);
+  const classInfo = timetable.jgkmInfo[0]
+  console.log(await unipa.getSyllbusInfo({
+    gakkiNo: classInfo.gakkiNo.toString(),
+    jigenNo: classInfo.jigenNo.toString(),
+    jugyoCd: classInfo.jugyoCd,
+    jugyoKbn: classInfo.jugyoKbn,
+    kaikoNendo: classInfo.kaikoNendo.toString(),
+    kaikoYobi: classInfo.kaikoYobi.toString(),
+    nendo: classInfo.nendo.toString()
+  }))
   // deno-lint-ignore no-debugger
   debugger;
+  console.log(unipa._getSessionInfo());
 }
 await test();
